@@ -41,10 +41,16 @@ void IG1App::init()
 	// allocate memory and resources
 	mViewPort = new Viewport(mWinW, mWinH); //glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT)
 	mCamera = new Camera(mViewPort);
+	mCamera2 = new Camera(mViewPort);
 	mScene = new Scene;
+	mScene2 = new Scene;
 
 	mCamera->set2D();
+	mCamera2->set2D();
 	mScene->init();
+	mScene2->init(0);
+
+	mCamera2->setSize(mViewPort->width() / static_cast<GLdouble>(2), mViewPort->height());
 }
 //-------------------------------------------------------------------------
 
@@ -85,7 +91,9 @@ void IG1App::iniWinOpenGL()
 void IG1App::free()
 {  // release memory and resources
 	delete mScene; mScene = nullptr;
+	delete mScene2; mScene2 = nullptr;
 	delete mCamera; mCamera = nullptr;
+	delete mCamera2; mCamera2 = nullptr;
 	delete mViewPort; mViewPort = nullptr;
 }
 //-------------------------------------------------------------------------
@@ -123,19 +131,19 @@ void IG1App::key(unsigned char key, int x, int y)
 	case 27:					   // Escape key 
 		glutLeaveMainLoop();	   // stops main loop and destroy the OpenGL context
 	case '+':
-		mCamera->setScale(+0.01);  // zoom in  (increases the scale)
+		getCamera(mCoord.x)->setScale(+0.01);  // zoom in  (increases the scale)
 		break;
 	case '-':
-		mCamera->setScale(-0.01);  // zoom out (decreases the scale)
+		getCamera(mCoord.x)->setScale(-0.01);  // zoom out (decreases the scale)
 		break;
 	case 'l':
-		mCamera->set3D();
+		getCamera(mCoord.x)->set3D();
 		break;
 	case 'k':
 		m2Vistas = !m2Vistas;
 		break;
 	case 'o':
-		mCamera->set2D();
+		getCamera(mCoord.x)->set2D();
 		break;
 	case 'u':
 		idleAnim = !idleAnim;
@@ -144,18 +152,18 @@ void IG1App::key(unsigned char key, int x, int y)
 		save();
 		break;
 	case '<':
-		mCamera->orbit(1);
+		getCamera(mCoord.x)->orbit(1);
 		break;
 	case '0':
-		mCamera->set2D();
+		getCamera(mCoord.x)->set2D();
 		mScene->changeScene(0);
 		break;
 	case '1':
-		mCamera->set2D();
+		getCamera(mCoord.x)->set2D();
 		mScene->changeScene(1);
 		break;
 	case 'p':
-		mCamera->changePrj();
+		getCamera(mCoord.x)->changePrj();
 		break;
 	default:
 		need_redisplay = false;
@@ -212,6 +220,7 @@ void IG1App::update()
 	if (idleAnim && glutGet(GLUT_ELAPSED_TIME) - mLastUpdateTime >= refreshTimeRate) {
 		mLastUpdateTime = glutGet(GLUT_ELAPSED_TIME);
 		mScene->update();
+		mScene2->update();
 		glutPostRedisplay();
 	}
 }
@@ -246,11 +255,11 @@ void IG1App::motion(int x, int y)
 
 	
 	if (mBot == GLUT_LEFT_BUTTON) 
-		mCamera->orbit(difference.x * 0.05, difference.y);
+		getCamera(x)->orbit(difference.x * 0.05, difference.y);
 	else if (mBot == GLUT_RIGHT_BUTTON)
 	{
-		mCamera->moveLR(difference.x);
-		mCamera->moveUD(difference.y);
+		getCamera(x)->moveLR(difference.x);
+		getCamera(x)->moveUD(difference.y);
 	}
 
 	glutPostRedisplay();
@@ -262,31 +271,28 @@ void IG1App::mouseWheel(int wheelButtonNumber, int direction, int x, int y)
 	int _y = glutGet(GLUT_WINDOW_HEIGHT) - y;
 	int modifiers = glutGetModifiers();
 
-	if (modifiers > 0 && GLUT_ACTIVE_CTRL) mCamera->setScale(direction);
-	else								   mCamera->moveFB(direction);
+	if (modifiers > 0 && GLUT_ACTIVE_CTRL) getCamera(x)->setScale(direction);
+	else								   getCamera(x)->moveFB(direction);
 
 	glutPostRedisplay();
 }
 //-------------------------------------------------------------------------
 
 void IG1App::display2Vistas() const {
-	//  cámara auxiliar
-	Camera auxCam = *mCamera;
+
 	// el puerto de vista auxiliar para restaurarlo
 	Viewport auxVP = *mViewPort;
 	// tamaño de los 2 puertos de vista
 	mViewPort->setSize(mWinW / 2, mWinH);
 
-	auxCam.setSize(mViewPort->width(), mViewPort->height());
-
 	// vista usuario
+	mCamera->setSize(mWinW / 2.0, mViewPort->height());
 	mViewPort->setPos(0, 0);
-	mScene->render(auxCam);
+	mScene->render(*mCamera);
+	mCamera->setSize(mWinW, mViewPort->height());
 
-	//vista cenital
 	mViewPort->setPos(mWinW / 2, 0);
-	auxCam.setCenital();
-	mScene-> render(auxCam);
+	mScene2-> render(*mCamera2);
 
 	*mViewPort = auxVP;  // restaurar el puerto de vista
 }
